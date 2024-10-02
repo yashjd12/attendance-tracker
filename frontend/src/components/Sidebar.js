@@ -7,7 +7,7 @@ const Sidebar = ({ userType }) => {
       <h2 className="text-2xl font-semibold mb-8">Tracker</h2>
       <nav>
         <ul>
-          {userType === 'student' ? (
+          {userType === 'student' && ( 
             <>
               <li className="mb-4">
                 <Link to="/student-attendance" className="hover:text-gray-300">My Attendance</Link>
@@ -25,7 +25,9 @@ const Sidebar = ({ userType }) => {
                 <Link to="/logout" className="hover:text-gray-300">Logout</Link>
               </li>
             </>
-          ) : userType === 'teacher' ? (
+          )}
+
+          {userType === 'faculty' && ( 
             <>
               <li className="mb-4">
                 <Link to="/dashboard" className="hover:text-gray-300">Dashboard</Link>
@@ -46,7 +48,7 @@ const Sidebar = ({ userType }) => {
                 <Link to="/logout" className="hover:text-gray-300">Logout</Link>
               </li>
             </>
-          ) : null}
+          )}
         </ul>
       </nav>
     </div>

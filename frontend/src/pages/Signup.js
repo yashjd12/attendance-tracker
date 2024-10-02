@@ -1,39 +1,35 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
-const Login = ({ onLogin }) => {
+const Signup = () => {
+  const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState('student'); // Default role
   const navigate = useNavigate();
 
-  const handleSubmit = async (e) => {
+  const handleSignup = async (e) => {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch('http://localhost:5000/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ name, email, password, role }), // Include name, email, password, and role in the body
       });
 
       const data = await response.json();
 
       if (response.ok) {
-        // Successful login
-        onLogin(data.role);
-        localStorage.setItem('token', data.token);
-
-        if (data.role === 'student') {
-          navigate('/student-attendance'); // Redirect to student's page
-        } else if (data.role === 'faculty') {
-          navigate('/dashboard'); // Redirect to teacher's dashboard
-        }
+        // Successful signup
+        alert('Signup successful! You can now log in.');
+        navigate('/login'); // Redirect to login page after successful signup
       } else {
-        alert(data.message || 'Invalid credentials');
+        alert(data.message || 'Signup failed. Please try again.');
       }
     } catch (error) {
       console.error('Error:', error);
-      alert('An error occurred while logging in. Please try again later.');
+      alert('An error occurred during signup. Please try again later.');
     }
   };
 
@@ -45,11 +41,20 @@ const Login = ({ onLogin }) => {
       }}
     >
       <div className="bg-white p-12 rounded-lg shadow-lg w-96 max-w-md">
-        <h2 className="text-3xl font-bold mb-8 text-center text-gray-800">Login</h2>
-        <form className="space-y-6" onSubmit={handleSubmit}>
+        <h2 className="text-3xl font-bold mb-8 text-center text-gray-800">Signup</h2>
+        <form className="space-y-6" onSubmit={handleSignup}>
           <div className="relative">
             <input 
               type="text" 
+              placeholder="Name" 
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
+            />
+          </div>
+          <div className="relative">
+            <input 
+              type="email" 
               placeholder="Email" 
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -65,27 +70,26 @@ const Login = ({ onLogin }) => {
               className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" 
             />
           </div>
+          <div className="relative">
+            <select 
+              value={role}
+              onChange={(e) => setRole(e.target.value)}
+              className="w-full p-4 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            >
+              <option value="student">Student</option>
+              <option value="faculty">Faculty</option>
+            </select>
+          </div>
           <button 
             type="submit" 
             className="w-full bg-blue-600 text-white py-3 rounded-lg shadow hover:bg-blue-700 transition duration-300"
           >
-            Login
+            Signup
           </button>
         </form>
-        <div className="text-center mt-6">
-          <a href="#" className="text-blue-600 hover:underline">Forgot Password?</a>
-        </div>
-        <div className="text-center mt-4">
-          <button 
-            onClick={() => navigate('/signup')} 
-            className="text-blue-600 hover:underline"
-          >
-            Don't have an account? Signup
-          </button>
-        </div>
       </div>
     </div>
   );
 };
 
-export default Login;
+export default Signup;
