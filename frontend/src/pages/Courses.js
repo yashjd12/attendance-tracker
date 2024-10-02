@@ -15,7 +15,7 @@ const Courses = ({ userId }) => {
   useEffect(() => {
     const fetchCourses = async () => {
       try {
-        const response = await axios.get(`http://localhost:5000/api/courses/${userId}`);
+        const response = await axios.get(`http://localhost:5000/api/courses-students/${userId}`);
         setCourses(response.data); 
       } catch (error) {
         console.error('Error fetching courses:', error);
@@ -37,7 +37,7 @@ const Courses = ({ userId }) => {
             });
             const newCourse = response.data;
             
-            await axios.post('http://localhost:5000/api/courses/assign', {
+            await axios.post('http://localhost:5000/api/faculty/courses', {
                 facultyId: userId,
                 courseId: newCourse.course_id,
             });
@@ -65,9 +65,8 @@ const Courses = ({ userId }) => {
     const confirmed = window.confirm(`Are you sure you want to delete "${courseToDelete.name}" from your courses?`);
     if (confirmed) {
       try {
-        debugger
         // Make a call to the backend to deassign the course from the faculty
-        await axios.delete('http://localhost:5000/api/courses/deassign', {
+        await axios.delete('http://localhost:5000/api/faculty/courses', {
           data: {
             facultyId: userId, // Pass the facultyId here
             courseId: courseId,
