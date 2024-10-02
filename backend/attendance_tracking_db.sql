@@ -1,13 +1,16 @@
+CREATE SEQUENCE user_id_seq 
+    START WITH 2024001 
+    INCREMENT BY 1;
+
 CREATE TABLE Users (
-    user_id SERIAL PRIMARY KEY,
-    username VARCHAR(50) NOT NULL UNIQUE,
+    user_id INTEGER DEFAULT nextval('user_id_seq') PRIMARY KEY,
+    name VARCHAR(100) NOT NULL,  -- Added the name field
     password VARCHAR(255) NOT NULL,
     role VARCHAR(10) CHECK (role IN ('student', 'faculty')) NOT NULL,
-    email VARCHAR(100) NOT NULL UNIQUE,
+    email VARCHAR(100) NOT NULL UNIQUE,  -- Email is unique
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
-
 
 CREATE TABLE Courses (
     course_id SERIAL PRIMARY KEY,
@@ -26,6 +29,18 @@ CREATE TABLE StudentCourses (
     FOREIGN KEY (student_id) REFERENCES Users(user_id) ON DELETE CASCADE,
     FOREIGN KEY (course_id) REFERENCES Courses(course_id) ON DELETE CASCADE
 );
+
+CREATE TABLE FacultyCourses (
+    faculty_course_id SERIAL PRIMARY KEY,
+    faculty_id INT NOT NULL,
+    course_id INT NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (faculty_id) REFERENCES Users(user_id) ON DELETE CASCADE,
+    FOREIGN KEY (course_id) REFERENCES Courses(course_id) ON DELETE CASCADE,
+    UNIQUE(faculty_id, course_id)  -- Ensuring a faculty can be assigned to a course only once
+);
+
 
 CREATE TABLE Attendance (
     attendance_id SERIAL PRIMARY KEY,
@@ -52,7 +67,6 @@ CREATE TABLE Leaves (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (student_id) REFERENCES Users(user_id) ON DELETE CASCADE
 );
-
 
 CREATE TABLE Notifications (
     notification_id SERIAL PRIMARY KEY,

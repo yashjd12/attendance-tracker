@@ -18,7 +18,7 @@ const login = async (req, res) => {
   
     const token = jwt.sign({ id: user.user_id, role: user.role }, 'yash1234', { expiresIn: '1h' });
   
-    res.json({ token, role: user.role });
+    res.json({ token, role: user.role, id: user.user_id });
 };
 
 const signup = async (req, res) => {

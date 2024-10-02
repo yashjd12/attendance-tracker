@@ -1,101 +1,146 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
-const initialCourses = [
-  {
-    id: '1',
-    name: 'Engineering Mechanics',
-    students: [
-      { id: 'S001', name: 'Hardik Pandya' },
-      { id: 'S002', name: 'Rohit Sharma' }
-    ]
-  },
-  {
-    id: '2',
-    name: 'Mathematics',
-    students: [
-      { id: 'S003', name: 'Virat Kohli' },
-      { id: 'S004', name: 'Shubman Gill' }
-    ]
-  }
-];
-
-const Courses = () => {
-  const [courses, setCourses] = useState(initialCourses);
+const Courses = ({ userId }) => {
+  const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState(null);
   const [formState, setFormState] = useState({
     newCourseName: '',
     newStudentId: '',
     newStudentName: '',
     showAddCourseForm: false,
-    showAddStudentModal: false
+    showAddStudentModal: false,
   });
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await axios.get(`http://localhost:5000/api/courses/${userId}`);
+        setCourses(response.data); 
+      } catch (error) {
+        console.error('Error fetching courses:', error);
+      }
+    };
+  
+    fetchCourses();
+  }, [userId]);
 
   const handleCourseClick = (course) => {
     setSelectedCourse(course);
   };
 
-  const handleAddCourse = () => {
+  const handleAddCourse = async () => {
     if (formState.newCourseName.trim()) {
-      const newCourse = { id: Date.now().toString(), name: formState.newCourseName, students: [] };
-      setCourses([...courses, newCourse]);
-      setFormState(prev => ({ ...prev, newCourseName: '', showAddCourseForm: false }));
-    }
-  };
+        try {
+            const response = await axios.post('http://localhost:5000/api/courses', {
+                courseName: formState.newCourseName
+            });
+            const newCourse = response.data;
+            
+            await axios.post('http://localhost:5000/api/courses/assign', {
+                facultyId: userId,
+                courseId: newCourse.course_id,
+            });
 
-  const handleDeleteCourse = (courseId) => {
+            setCourses((prevCourses) => [
+                ...prevCourses, 
+                {
+                    id: newCourse.course_id, 
+                    name: newCourse.course_name,
+                    students: []
+                }
+            ]);
+
+            // Step 4: Reset form state
+            setFormState((prev) => ({ ...prev, newCourseName: '', showAddCourseForm: false }));
+        } catch (error) {
+            console.error('Error adding course:', error);
+        }
+    }
+};
+
+
+  const handleDeleteCourse = async (courseId) => {
     const courseToDelete = courses.find(course => course.id === courseId);
     const confirmed = window.confirm(`Are you sure you want to delete "${courseToDelete.name}" from your courses?`);
     if (confirmed) {
-      setCourses(courses.filter(course => course.id !== courseId));
-      if (selectedCourse && selectedCourse.id === courseId) {
-        setSelectedCourse(null);
+      try {
+        debugger
+        // Make a call to the backend to deassign the course from the faculty
+        await axios.delete('http://localhost:5000/api/courses/deassign', {
+          data: {
+            facultyId: userId, // Pass the facultyId here
+            courseId: courseId,
+          },
+        });
+
+        // If successful, update the local state
+        setCourses((prevCourses) => prevCourses.filter(course => course.id !== courseId));
+        if (selectedCourse && selectedCourse.id === courseId) {
+          setSelectedCourse(null);
+        }
+      } catch (error) {
+        console.error('Error deleting course:', error);
       }
     }
   };
 
-  const handleAddStudent = () => {
+  const handleAddStudent = async () => {
     if (selectedCourse && formState.newStudentId.trim() && formState.newStudentName.trim()) {
-      const updatedCourses = courses.map(course => {
-        if (course.id === selectedCourse.id) {
-          return {
-            ...course,
-            students: [
-              ...course.students,
-              { id: formState.newStudentId, name: formState.newStudentName }
-            ]
-          };
-        }
-        return course;
-      });
+      try {
+        await axios.post(`http://localhost:5000/api/courses/${selectedCourse.id}/students`, {
+          studentId: formState.newStudentId,
+        });
 
-      setCourses(updatedCourses);
-      setSelectedCourse(updatedCourses.find(course => course.id === selectedCourse.id));
-      setFormState(prev => ({ ...prev, newStudentId: '', newStudentName: '', showAddStudentModal: false }));
+        const updatedCourses = courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            return {
+              ...course,
+              students: [
+                ...course.students,
+                { id: formState.newStudentId, name: formState.newStudentName },
+              ],
+            };
+          }
+          return course;
+        });
+
+        setCourses(updatedCourses);
+        setSelectedCourse(updatedCourses.find(course => course.id === selectedCourse.id));
+        setFormState((prev) => ({ ...prev, newStudentId: '', newStudentName: '', showAddStudentModal: false }));
+      } catch (error) {
+        console.error('Error adding student to course:', error);
+      }
     }
   };
 
-  const handleDeleteStudent = (studentId) => {
+  const handleDeleteStudent = async (studentId) => {
     const studentToDelete = selectedCourse.students.find(student => student.id === studentId);
     const confirmed = window.confirm(`Are you sure you want to delete "${studentToDelete.name}" from "${selectedCourse.name}"?`);
     if (confirmed) {
-      const updatedCourses = courses.map(course => {
-        if (course.id === selectedCourse.id) {
-          return {
-            ...course,
-            students: course.students.filter(student => student.id !== studentId)
-          };
-        }
-        return course;
-      });
+      try {
+        await axios.delete(`http://localhost:5000/api/courses/${selectedCourse.id}/students/${studentId}`);
+        const updatedCourses = courses.map(course => {
+          if (course.id === selectedCourse.id) {
+            return {
+              ...course,
+              students: course.students.filter(student => student.id !== studentId),
+            };
+          }
+          return course;
+        });
 
-      setCourses(updatedCourses);
-      setSelectedCourse(updatedCourses.find(course => course.id === selectedCourse.id));
+        setCourses(updatedCourses);
+        setSelectedCourse(updatedCourses.find(course => course.id === selectedCourse.id));
+      } catch (error) {
+        console.error('Error deleting student from course:', error);
+      }
     }
   };
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setFormState(prev => ({ ...prev, [name]: value }));
+    setFormState((prev) => ({ ...prev, [name]: value }));
   };
 
   return (

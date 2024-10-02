@@ -10,7 +10,7 @@ const Login = ({ onLogin }) => {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:5000/api/auth/login', {
+      const response = await fetch('http://localhost:5000/api/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -20,7 +20,7 @@ const Login = ({ onLogin }) => {
 
       if (response.ok) {
         // Successful login
-        onLogin(data.role);
+        onLogin(data.role, data.id);
         localStorage.setItem('token', data.token);
 
         if (data.role === 'student') {
