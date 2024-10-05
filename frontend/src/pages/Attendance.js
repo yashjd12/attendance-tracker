@@ -1,40 +1,16 @@
 import React, { useState, useEffect, useRef } from 'react';
 import Filter from '../components/Filter';
+import axios from 'axios';
 
-const Attendance = () => {
+const Attendance = ({ userId }) => {
   const [selectedCourse, setSelectedCourse] = useState("");
   const [selectedDate, setSelectedDate] = useState("");
-  const [students, setStudents] = useState([
-    { id: "S001", name: "Hardik Pandya", isPresent: false },
-    { id: "S002", name: "Rohit Sharma", isPresent: false },
-    { id: "S003", name: "Virat Kohli", isPresent: false },
-    { id: "S004", name: "Shubman Gill", isPresent: false },
-    { id: "S005", name: "Ishan Kishan", isPresent: false },
-    { id: "S006", name: "Rishabh Pant", isPresent: false },
-    { id: "S007", name: "Jasprit Bumrah", isPresent: false },
-    { id: "S008", name: "Suryakumar Yadav", isPresent: false },
-    { id: "S009", name: "Sachin Tendulkar", isPresent: false },
-    { id: "S010", name: "Yuvraj Singh", isPresent: false },
-    { id: "S011", name: "M.S Dhoni", isPresent: false },
-    { id: "S012", name: "K L Rahul", isPresent: false },
-    { id: "S013", name: "Kuldeep Yadav", isPresent: false },
-    { id: "S014", name: "Yuzuvendra Chahal", isPresent: false },
-    { id: "S015", name: "Ravindra Jadeja", isPresent: false },
-    { id: "S016", name: "Shivam Dube", isPresent: false },
-  ]);
+  const [courseOptions, setCourseOptions] = useState([]);
+  const [students, setStudents] = useState([]);
   const [currentRow, setCurrentRow] = useState(0);
   const [totalPresent, setTotalPresent] = useState(0);
 
-  // Ref for each row
   const rowRefs = useRef([]);
-
-  const totalCount = students.length;
-
-
-  const courseOptions = [
-    { value: "mechanics", label: "Engineering Mechanics" },
-    { value: "mathematics", label: "Mathematics" },
-  ];
 
   const handleCourseChange = (event) => {
     setSelectedCourse(event.target.value);
@@ -46,8 +22,28 @@ const Attendance = () => {
 
   const handleAttendanceChange = (index) => {
     const updatedStudents = [...students];
-    updatedStudents[index].isPresent = !updatedStudents[index].isPresent;
+    updatedStudents[index].is_present = !updatedStudents[index].is_present;
     setStudents(updatedStudents);
+  };
+
+  const handleSave = () => {
+    console.log('Submit button clicked');
+    
+    const attendanceData = {
+      course_id: selectedCourse,
+      attendance_date: selectedDate,
+      attendance_data: students.map(student => ({
+        id: student.id,
+        is_present: student.is_present,
+      })),
+    };
+    axios.post('http://localhost:5000/api/attendance', attendanceData)
+      .then(response => {
+        alert('Attendance Saved Successfully');
+      })
+      .catch(error => {
+        console.error('Error saving attendance:', error);
+      });
   };
 
   const handleKeyDown = (event) => {
@@ -65,12 +61,44 @@ const Attendance = () => {
       handleAttendanceChange(currentRow);
     }
   };
-  
+
+  // Fetch faculty courses on userId change
   useEffect(() => {
-    const presentCount = students.filter(student => student.isPresent).length;
+    if (userId) {
+      axios.get('http://localhost:5000/api/facultyCourses', {
+        params: { user_id: userId }
+      })
+      .then((response) => {
+        setCourseOptions(response.data); 
+      })
+      .catch((error) => {
+        console.error("Error fetching faculty courses", error);
+      });
+    }
+  }, [userId]);
+
+  // Fetch students and their attendance on course and date selection
+  useEffect(() => {
+    if (selectedCourse && selectedDate) {
+      axios.get('http://localhost:5000/api/attendance', {
+        params: { course_id: selectedCourse, attendance_date: selectedDate }
+      })
+      .then((response) => {
+        setStudents(response.data);
+      })
+      .catch((error) => {
+        console.error("Error fetching attendance data", error);
+      });
+    }
+  }, [selectedCourse, selectedDate]);
+
+  // Calculate total present count
+  useEffect(() => {
+    const presentCount = students.filter(student => student.is_present).length;
     setTotalPresent(presentCount);
   }, [students]);
 
+  // Handle keyboard navigation
   useEffect(() => {
     document.addEventListener("keydown", handleKeyDown);
     return () => {
@@ -78,6 +106,7 @@ const Attendance = () => {
     };
   }, [currentRow, students]);
 
+  // Scroll to current row
   useEffect(() => {
     if (rowRefs.current[currentRow]) {
       rowRefs.current[currentRow].scrollIntoView({
@@ -90,12 +119,23 @@ const Attendance = () => {
   return (
     <div className="p-8">
       <h2 className="text-4xl font-bold mb-8 text-gray-800">Attendance</h2>
-      <Filter
-        courses={courseOptions}
-        date={selectedDate}
-        onCourseChange={handleCourseChange}
-        onDateChange={handleDateChange}
-      />
+      
+      {/* Filter and Submit Button in the same row */}
+      <div className="flex justify-between items-center mb-4">
+        <Filter
+          courses={courseOptions}
+          date={selectedDate}
+          onCourseChange={handleCourseChange}
+          onDateChange={handleDateChange}
+        />
+        <button
+          onClick={handleSave}
+          className="ml-4 bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg shadow hover:bg-blue-600"
+        >
+          Save Attendance
+        </button>
+      </div>
+
       <div className="mb-6 p-4 bg-white border border-gray-200 rounded-lg shadow-md flex justify-between items-center">
         <div>
           <p className="text-md font-medium text-gray-700">Total Count:</p>
@@ -130,9 +170,7 @@ const Attendance = () => {
               <tr
                 key={student.id}
                 ref={(el) => (rowRefs.current[index] = el)}
-                className={`${
-                  index === currentRow ? "bg-gray-100 bg-opacity-50" : ""
-                }`}
+                className={`${index === currentRow ? "bg-gray-100 bg-opacity-50" : ""}`}
               >
                 <td className="py-3 px-4 border-b border-gray-200">
                   {student.id}
@@ -143,7 +181,7 @@ const Attendance = () => {
                 <td className="py-3 px-4 border-b border-gray-200">
                   <input
                     type="checkbox"
-                    checked={student.isPresent}
+                    checked={student.is_present}
                     onChange={() => handleAttendanceChange(index)}
                     className="form-checkbox h-4 w-4"
                   />

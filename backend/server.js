@@ -19,10 +19,10 @@ app.post('/api/signup', async (req, res) => {
             return res.status(400).json({ message: 'Email already exists' });
         }
 
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Directly store the plain password without hashing
         const newUser = await pool.query(
             'INSERT INTO Users (name, password, role, email) VALUES ($1, $2, $3, $4) RETURNING *',
-            [name, hashedPassword, role, email]
+            [name, password, role, email]
         );
 
         res.status(201).json({ message: 'User created successfully', user: newUser.rows[0] });
@@ -34,20 +34,26 @@ app.post('/api/signup', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
     const { email, password } = req.body;
-    const user = await pool.query('SELECT * FROM Users WHERE email = $1', [email]);
 
-    if (user.rows.length === 0) {
-        return res.status(404).json({ message: 'User not found' });
+    try {
+        const user = await pool.query('SELECT * FROM Users WHERE email = $1', [email]);
+        if (user.rows.length === 0) {
+            return res.status(404).json({ message: 'User not found' });
+        }
+        if (password !== user.rows[0].password) {
+            return res.status(400).json({ message: 'Invalid credentials' });
+        }
+        const token = jwt.sign(
+            { id: user.rows[0].user_id, role: user.rows[0].role },
+            'yash1234',  // Secret key
+            { expiresIn: '1h' } 
+        );
+
+        res.json({ token, role: user.rows[0].role, id: user.rows[0].user_id });
+    } catch (error) {
+        console.error('Login error:', error);
+        res.status(500).json({ message: 'Server error' });
     }
-
-    const isMatch = await bcrypt.compare(password, user.rows[0].password);
-    if (!isMatch) {
-        return res.status(400).json({ message: 'Invalid credentials' });
-    }
-
-    const token = jwt.sign({ id: user.rows[0].user_id, role: user.rows[0].role }, 'yash1234', { expiresIn: '1h' });
-
-    res.json({ token, role: user.rows[0].role, id: user.rows[0].user_id });
 });
 
 // Courses Management
@@ -155,6 +161,111 @@ app.delete('/api/faculty/courses', async (req, res) => {
         res.status(500).json({ error: 'Internal server error' });
     }
 });
+
+
+//Get Faculty Courses
+app.get('/api/facultyCourses', async (req, res) => {
+    const { user_id } = req.query;
+  
+    if (!user_id) {
+      return res.status(400).json({ error: 'user_id is required' });
+    }
+  
+    const query = `
+      SELECT c.course_id AS value, c.course_name AS label
+      FROM FacultyCourses fc
+      JOIN Courses c ON fc.course_id = c.course_id
+      WHERE fc.faculty_id = $1
+    `;
+  
+    try {
+      // Execute the query
+      const result = await pool.query(query, [user_id]);
+  
+      // Return the courses in the format of courseOptions
+      res.json(result.rows);
+    } catch (err) {
+      console.error('Error fetching faculty courses:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+});
+
+
+
+// Get Attendance
+app.get('/api/attendance', async (req, res) => {
+    const { course_id, attendance_date } = req.query;
+  
+    if (!course_id || !attendance_date) {
+      return res.status(400).json({ error: 'course_id and attendance_date are required' });
+    }
+  
+    const query = `
+      SELECT u.user_id AS id, u.name AS name, 
+             COALESCE(a.is_present, FALSE) AS is_present
+      FROM Users u
+      JOIN StudentCourses sc ON u.user_id = sc.student_id
+      LEFT JOIN Attendance a 
+        ON u.user_id = a.student_id 
+        AND a.course_id = $1
+        AND a.attendance_date = $2
+      WHERE u.role = 'student' 
+        AND sc.course_id = $1;
+    `;
+  
+    try {
+      // Execute the query
+      const result = await pool.query(query, [course_id, attendance_date]);
+  
+      // Send the rows back to the client
+      res.json(result.rows);
+    } catch (err) {
+      console.error('Error fetching attendance:', err);
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
+ 
+  
+// Save Attendance
+app.post('/api/attendance', async (req, res) => {
+    const { course_id, attendance_date, attendance_data } = req.body;
+  
+    if (!course_id || !attendance_date || !attendance_data) {
+      return res.status(400).json({ error: 'course_id, attendance_date, and attendance_data are required' });
+    }
+  
+    const deleteQuery = `
+      DELETE FROM Attendance 
+      WHERE course_id = $1 AND attendance_date = $2;
+    `;
+  
+    const insertQuery = `
+      INSERT INTO Attendance (student_id, course_id, attendance_date, is_present)
+      VALUES ($1, $2, $3, $4);
+    `;
+  
+    try {
+      // Start a transaction
+      await pool.query('BEGIN');
+  
+      // Delete existing attendance records for the course and date
+      await pool.query(deleteQuery, [course_id, attendance_date]);
+  
+      // Insert the new attendance records
+      for (const student of attendance_data) {
+        await pool.query(insertQuery, [student.id, course_id, attendance_date, student.is_present]);
+      }
+  
+      // Commit the transaction
+      await pool.query('COMMIT');
+  
+      res.status(201).json({ message: 'Attendance saved successfully' });
+    } catch (err) {
+      console.error('Error saving attendance:', err);
+      await pool.query('ROLLBACK'); // Roll back the transaction in case of error
+      res.status(500).json({ error: 'Server error' });
+    }
+  });
 
 const PORT = process.env.PORT || 5000;
 

@@ -8,7 +8,9 @@ const Filter = ({ courses, date, onCourseChange, onDateChange }) => {
         <select
           className="p-2 border rounded-lg"
           onChange={onCourseChange}
+          defaultValue="" // Set the default value to an empty string
         >
+          <option value="" disabled>Select a Course...</option> {/* Default option */}
           {courses.map(option => (
             <option key={option.value} value={option.value}>
               {option.label}
