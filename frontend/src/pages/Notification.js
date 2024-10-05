@@ -1,32 +1,24 @@
 import React, { useState, useEffect } from 'react';
 import { FaBell, FaEnvelopeOpenText } from 'react-icons/fa';
+import axios from 'axios';
 
-const Notification = () => {
+const Notification = ({ userId }) => {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    // Simulating fetching notifications from a database or an API
     const fetchNotifications = async () => {
-      const initialNotifications = [
-        {
-          id: 1,
-          type: 'Alert',
-          course: 'Engineering Mechanics',
-          month: 'August 2024',
-          attendancePercentage: 60,
-        },
-        {
-          id: 2,
-          type: 'Leave',
-          leaveStatus: 'Approved',
-          comment: 'Get well soon!',
-        },
-      ];
-      setNotifications(initialNotifications);
+      try {
+        if(userId){
+          const response = await axios.get(`http://localhost:5000/api/notifications/${userId}`);
+        setNotifications(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching notifications:', error);
+      }
     };
 
     fetchNotifications();
-  }, []);
+  }, [userId]);
 
   return (
     <div className="p-8">
@@ -56,6 +48,9 @@ const Notification = () => {
                   <p className="text-sm text-gray-600">
                     <strong>Attendance:</strong> {notification.attendancePercentage}%
                   </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Received on:</strong> {new Date(notification.createdAt).toLocaleString()}
+                  </p>
                 </>
               ) : (
                 <>
@@ -63,7 +58,13 @@ const Notification = () => {
                     Leave Status: {notification.leaveStatus}
                   </h3>
                   <p className="text-sm text-gray-600">
+                    <strong>Date:</strong> {notification.startDate} to {notification.endDate}
+                  </p>
+                  <p className="text-sm text-gray-600">
                     <strong>Comment:</strong> {notification.comment}
+                  </p>
+                  <p className="text-sm text-gray-600">
+                    <strong>Received on:</strong> {new Date(notification.createdAt).toLocaleString()}
                   </p>
                 </>
               )}

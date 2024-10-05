@@ -488,25 +488,37 @@ app.get('/api/students', async (req, res) => {
 // Send alert for low attendance
 app.post('/api/sendAlert', async (req, res) => {
     const { studentId, courseId, monthlyAttendance, selectedMonth } = req.body;
-  
+
     try {
-      const notificationQuery = `
-        INSERT INTO Notifications (student_id, course_id, notification_type, comment)
-        VALUES ($1, $2, 'Alert', $3)
-        RETURNING notification_id
-      `;
-      
-      const comment = `Attendance is ${monthlyAttendance} % in ${selectedMonth}`;
-      const values = [studentId, courseId, comment];
-  
-      const result = await pool.query(notificationQuery, values);
-  
-      res.status(201).json({ notificationId: result.rows[0].notification_id });
+        // First, fetch the course name using the courseId
+        const courseQuery = `
+            SELECT course_name FROM courses WHERE course_id = $1
+        `;
+        const courseResult = await pool.query(courseQuery, [courseId]);
+        
+        if (courseResult.rows.length === 0) {
+            return res.status(404).json({ error: 'Course not found' });
+        }
+
+        const courseName = courseResult.rows[0].course_name;
+        const comment = `Attendance:${monthlyAttendance}, Month:${selectedMonth}, Course:${courseName}`;
+        
+        const notificationQuery = `
+            INSERT INTO Notifications (student_id, course_id, notification_type, comment)
+            VALUES ($1, $2, 'Alert', $3)
+            RETURNING notification_id
+        `;
+        
+        const values = [studentId, courseId, comment];
+        const result = await pool.query(notificationQuery, values);
+
+        res.status(201).json({ notificationId: result.rows[0].notification_id });
     } catch (error) {
-      console.error("Error sending alert:", error);
-      res.status(500).json({ error: 'Internal Server Error' });
+        console.error("Error sending alert:", error);
+        res.status(500).json({ error: 'Internal Server Error' });
     }
-  });
+});
+
 
 
 // Get leave Requests
@@ -565,7 +577,7 @@ app.put('/api/leaves/:leaveId', async (req, res) => {
         const formattedEndDate = new Date(leave.leave_end_date).toISOString().split('T')[0];
 
         // Create the notification
-        const notificationComment = `Leave request from ${formattedStartDate} to ${formattedEndDate} is ${status}. ${comment}`;
+        const notificationComment = `Status:${status}, Date:${formattedStartDate} to ${formattedEndDate}, Comment:${comment}`;
         
         await pool.query(
             `INSERT INTO Notifications (student_id, course_id, notification_type, comment) VALUES ($1, $2, $3, $4)`,
@@ -578,6 +590,65 @@ app.put('/api/leaves/:leaveId', async (req, res) => {
         res.status(500).send('Server Error');
     }
 });
+
+
+// Get notifications for student
+app.get('/api/notifications/:userId', async (req, res) => {
+    const userId = req.params.userId;
+  
+    try {
+      // Query to fetch notifications for the user
+      const notificationQuery = `
+        SELECT n.notification_id, n.notification_type, n.comment, c.course_name, n.created_at
+        FROM Notifications n
+        LEFT JOIN Courses c ON n.course_id = c.course_id
+        WHERE n.student_id = $1
+        ORDER BY n.created_at DESC
+      `;
+      
+      const result = await pool.query(notificationQuery, [userId]);
+  
+      // Process the result to format it according to the required output
+      const notifications = result.rows.map(row => {
+        if (row.notification_type === 'Alert') {
+          // Extract course, month, and attendance percentage from comment
+          const regex = /Attendance:\s*(\d+)\s*,\s*Month:\s*([A-Za-z]+)\s*,\s*Course:\s*(.+)/;
+          const match = row.comment.match(regex);
+  
+          return {
+            id: row.notification_id,
+            type: 'Alert',
+            course: match ? match[3] : 'Unknown Course',
+            month: match ? match[2] : 'Unknown Month',
+            attendancePercentage: match ? parseInt(match[1], 10) : 0,
+            createdAt: row.created_at
+          };
+        } else if (row.notification_type === 'Leave') {
+            // Extract leave status, date, and comment from comment
+            const leaveRegex = /Status:\s*(\w+),\s*Date:\s*([\d\-]+)\s*to\s*([\d\-]+),\s*Comment:\s*(.*)/;
+            const leaveMatch = row.comment.match(leaveRegex);
+          
+            return {
+              id: row.notification_id,
+              type: 'Leave',
+              leaveStatus: leaveMatch ? leaveMatch[1] : 'Unknown Status',
+              startDate: leaveMatch ? leaveMatch[2] : null,
+              endDate: leaveMatch ? leaveMatch[3] : null,
+              comment: leaveMatch ? leaveMatch[4] : 'No Comment',
+              createdAt: row.created_at,
+            };
+          }
+          
+      });
+  
+      // Send the formatted notifications as the response
+      res.status(200).json(notifications);
+    } catch (error) {
+      console.error('Error fetching notifications:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
+  
 
 
 

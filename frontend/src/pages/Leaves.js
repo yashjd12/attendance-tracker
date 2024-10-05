@@ -17,9 +17,11 @@ const Leaves = ({ userId }) => {
   const fetchLeaveRequests = async () => {
     setLoading(true);
     try {
-      const response = await axios.get(`http://localhost:5000/api/leaves/${userId}`);
-      setLeaveRequests(response.data);
-      setLoading(false);
+      if(userId){
+        const response = await axios.get(`http://localhost:5000/api/leaves/${userId}`);
+        setLeaveRequests(response.data);
+        setLoading(false);
+      }
     } catch (err) {
       console.error(err);
       setError('Failed to fetch leave requests');
