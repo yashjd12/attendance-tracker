@@ -1,33 +1,48 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Lottie from 'lottie-react';
 import UserAnimation from '../Animations/UserAnimation.json'; // Path to your animation JSON file
+import axios from 'axios';
 
-const initialProfile = {
-  id: 'S001',
-  name: 'Hardik Pandya',
-  email: 'hardik.pandya@example.com',
-  enrollmentYear: '2020',
-  studentID: 'S001'
-};
-
-const Profile = () => {
-  const [profile, setProfile] = useState(initialProfile);
+const Profile = ({ userId }) => {
+  const [profile, setProfile] = useState(null);  // Use only profile state
   const [isEditing, setIsEditing] = useState(false);
-  const [name, setName] = useState(profile.name);
-  const [email, setEmail] = useState(profile.email);
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        if (userId) {
+          const response = await axios.get(`http://localhost:5000/api/profile/${userId}`);
+          const userData = response.data;
+          setProfile(userData);
+        }
+      } catch (error) {
+        console.error('Error fetching user profile:', error);
+      }
+    };
+
+    fetchProfile();
+  }, [userId]);
 
   const handleEditClick = () => {
     setIsEditing(!isEditing);
   };
 
-  const handleSaveClick = () => {
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
     setProfile((prevProfile) => ({
       ...prevProfile,
-      name,
-      email
+      [name]: value
     }));
+  };
+
+  const handleSaveClick = () => {
+    // Perform save logic if needed
     setIsEditing(false);
   };
+
+  if (!profile) {
+    return <div>Loading...</div>;  // Loading state
+  }
 
   return (
     <div className="p-8 flex flex-col items-center justify-center min-h-screen bg-gray-50">
@@ -37,7 +52,7 @@ const Profile = () => {
       <div className="flex flex-col items-center mb-8">
         {/* Lottie Animation */}
         <div className="w-40 h-40 mb-4">
-          <Lottie 
+          <Lottie
             animationData={UserAnimation}
             loop
             autoplay
@@ -45,7 +60,7 @@ const Profile = () => {
             speed={0.1}  // Adjust the speed here (0.5 is half speed)
           />
         </div>
-        <p className="text-xl font-semibold text-gray-700">Student ID: {profile.studentID}</p>
+        <p className="text-xl font-semibold text-gray-700">Student ID: {profile.id}</p>
       </div>
 
       {/* Profile Information */}
@@ -55,8 +70,9 @@ const Profile = () => {
           {isEditing ? (
             <input
               type="text"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
+              name="name"  // Use name attribute for profile field
+              value={profile.name}
+              onChange={handleInputChange}
               className="mt-1 block w-full border border-gray-300 rounded p-2"
             />
           ) : (
@@ -69,8 +85,9 @@ const Profile = () => {
           {isEditing ? (
             <input
               type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
+              name="email"  // Use name attribute for profile field
+              value={profile.email}
+              onChange={handleInputChange}
               className="mt-1 block w-full border border-gray-300 rounded p-2"
             />
           ) : (
