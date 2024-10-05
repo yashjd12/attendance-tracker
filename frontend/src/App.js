@@ -23,11 +23,12 @@ function App() {
     const token = localStorage.getItem('token');
     if (token) {
       try {
-        const decoded = decodeToken(token);
+        const decoded = jwtDecode(token);
         setUserType(decoded.role);
         setUserId(decoded.id); 
       } catch (error) {
         console.error('Token decoding failed:', error);
+        localStorage.removeItem('token');
       }
     }
   }, []);
@@ -44,7 +45,19 @@ function App() {
   };
 
   const PrivateRoute = ({ element }) => {
-    return userType ? element : <Navigate to="/login" />;
+    const token = localStorage.getItem('token');
+    let decoded;
+    if (token) {
+      try {
+        decoded = jwtDecode(token);
+        setUserType(decoded.role);
+        setUserId(decoded.id); 
+      } catch (error) {
+        console.error('Token decoding failed:', error);
+        localStorage.removeItem('token');
+      }
+    }
+    return decoded.id ? element : <Navigate to="/login" />;
   };
 
   return (
@@ -79,14 +92,3 @@ function App() {
 }
 
 export default App;
-
-// Function to decode the JWT token
-function decodeToken(token) {
-  try {
-    const decoded = jwtDecode(token); // Decode the token using jwt-decode
-    return decoded;
-  } catch (error) {
-    console.error('Failed to decode token:', error);
-    throw error;
-  }
-}
