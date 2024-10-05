@@ -683,6 +683,57 @@ app.put("/api/leaves/:leaveId", async (req, res) => {
   }
 });
 
+
+// Get applied leaves for student
+app.get('/api/student/leaves/:userId', async (req, res) => {
+    const { userId } = req.params;
+  
+    try {
+      // Query to get leave requests for a particular student (userId)
+      const leaveQuery = `
+        SELECT leave_id, leave_start_date, leave_end_date, reason, status, comment
+        FROM Leaves
+        WHERE student_id = $1
+        ORDER BY created_at DESC
+      `;
+  
+      // Execute the query
+      const result = await pool.query(leaveQuery, [userId]);
+  
+      // Map the result to the format expected by the frontend
+      const leaveRequests = result.rows.map(row => ({
+        id: row.leave_id,
+        fromDate: row.leave_start_date.toISOString().split('T')[0], // Format to YYYY-MM-DD
+        toDate: row.leave_end_date.toISOString().split('T')[0],
+        reason: row.reason,
+        status: row.status,
+        comment: row.comment || null
+      }));
+  
+      res.status(200).json(leaveRequests);
+    } catch (error) {
+      console.error('Error fetching leave requests:', error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+});
+
+// Apply new leave for student
+app.post('/api/student/leaves', async (req, res) => {
+    const { student_id, course_id, leave_start_date, leave_end_date, reason, status } = req.body;
+  
+    try {
+      const newLeave = await pool.query(
+        `INSERT INTO Leaves (student_id, course_id, leave_start_date, leave_end_date, reason, status)
+         VALUES ($1, $2, $3, $4, $5, $6) RETURNING *`,
+        [student_id, course_id, leave_start_date, leave_end_date, reason, status]
+      );
+      res.status(201).json(newLeave.rows[0]); // Respond with the created leave
+    } catch (error) {
+      console.error('Error inserting leave request:', error);
+      res.status(500).send('Server Error'); // Respond with an error message
+    }
+});
+
 // Get notifications for student
 app.get("/api/notifications/:userId", async (req, res) => {
   const userId = req.params.userId;
