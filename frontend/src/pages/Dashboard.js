@@ -51,7 +51,7 @@ const donutChartData = {
   ],
 };
 
-const Dashboard = () => {
+const Dashboard = ({userId}) => {
   const currentMonth = new Intl.DateTimeFormat('en-US', { month: 'long' }).format(new Date());
 
   return (

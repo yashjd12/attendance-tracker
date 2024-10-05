@@ -1,31 +1,58 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FaCheckCircle, FaTimesCircle, FaExclamationCircle } from 'react-icons/fa'; // Import icons
+import axios from 'axios'; // For making API requests
 
-const initialLeaveRequests = [
-  { id: 'L001', studentName: 'Hardik Pandya', leaveDate: '2024-09-15', reason: 'Medical Appointment' },
-  { id: 'L002', studentName: 'Rohit Sharma', leaveDate: '2024-09-16', reason: 'Family Event' },
-  // Add more leave requests as needed
-];
-
-const Leaves = () => {
-  const [leaveRequests, setLeaveRequests] = useState(initialLeaveRequests);
+const Leaves = ({ userId }) => {
+  const [leaveRequests, setLeaveRequests] = useState([]);
   const [comments, setComments] = useState({});
   const [status, setStatus] = useState({});
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  // Fetch leave requests when component mounts
+  useEffect(() => {
+    fetchLeaveRequests();
+  }, [userId]);
+
+  const fetchLeaveRequests = async () => {
+    setLoading(true);
+    try {
+      const response = await axios.get(`http://localhost:5000/api/leaves/${userId}`);
+      setLeaveRequests(response.data);
+      setLoading(false);
+    } catch (err) {
+      console.error(err);
+      setError('Failed to fetch leave requests');
+      setLoading(false);
+    }
+  };
 
   const handleCommentChange = (id, value) => {
-    setComments(prevComments => ({ ...prevComments, [id]: value }));
+    setComments((prevComments) => ({ ...prevComments, [id]: value }));
   };
 
   const handleStatusChange = (id, value) => {
-    setStatus(prevStatus => ({ ...prevStatus, [id]: value }));
+    setStatus((prevStatus) => ({ ...prevStatus, [id]: value }));
   };
 
-  const handleSendStatus = (id) => {
-    const updatedRequests = leaveRequests.filter(request => request.id !== id);
-    setLeaveRequests(updatedRequests);
-    alert(`Leave request ${id} has been ${status[id] === 'approved' ? 'approved' : 'rejected'} with comment: ${comments[id] || 'No comment'}`);
-    // Implement API call or logic to update the leave status and comment
+  const handleSendStatus = async (id) => {
+    try {
+      // Send the updated status and comment to the backend
+      await axios.put(`http://localhost:5000/api/leaves/${id}`, {
+        status: status[id],
+        comment: comments[id] || ''
+      });
+
+      // After successful update, refetch leave requests
+      fetchLeaveRequests();
+    } catch (error) {
+      console.error('Error updating status:', error);
+      setError('Failed to update leave request');
+    }
   };
+
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>{error}</p>;
 
   return (
     <div className="p-8">
@@ -33,7 +60,7 @@ const Leaves = () => {
       <div className="space-y-4 max-h-[calc(100vh-200px)] overflow-y-auto">
         {leaveRequests.map((request) => (
           <div
-            key={request.id}
+            key={request.leave_id}
             className="bg-white p-6 rounded-lg shadow-lg flex flex-col gap-4 border-l-4 border-gray-300"
           >
             <div className="flex items-center gap-4">
@@ -42,10 +69,13 @@ const Leaves = () => {
               </div>
               <div>
                 <h3 className="text-xl font-semibold mb-1">
-                  {request.studentName}
+                  {request.student_name}
                 </h3>
                 <p className="text-sm text-gray-600 mb-1">
-                  <strong>Date:</strong> {request.leaveDate}
+                  <strong>Course:</strong> {request.course_name}
+                </p>
+                <p className="text-sm text-gray-600 mb-1">
+                  <strong>Leave Dates:</strong> {request.leave_start_date} to {request.leave_end_date}
                 </p>
                 <p className="text-sm text-gray-600">
                   <strong>Reason:</strong> {request.reason}
@@ -55,12 +85,12 @@ const Leaves = () => {
 
             {/* Status Indicator */}
             <div className="flex items-center gap-4">
-              {status[request.id] === "approved" ? (
+              {status[request.leave_id] === "approved" ? (
                 <span className="text-green-500 font-semibold flex items-center gap-2">
                   <FaCheckCircle className="text-lg" />
                   Approved
                 </span>
-              ) : status[request.id] === "rejected" ? (
+              ) : status[request.leave_id] === "rejected" ? (
                 <span className="text-red-500 font-semibold flex items-center gap-2">
                   <FaTimesCircle className="text-lg" />
                   Rejected
@@ -73,13 +103,13 @@ const Leaves = () => {
             {/* Status and Comment Section */}
             <div className="flex gap-4 mb-4">
               <button
-                onClick={() => handleStatusChange(request.id, "approved")}
+                onClick={() => handleStatusChange(request.leave_id, "approved")}
                 className="bg-green-500 text-white px-4 py-2 rounded hover:bg-green-600"
               >
                 Approve
               </button>
               <button
-                onClick={() => handleStatusChange(request.id, "rejected")}
+                onClick={() => handleStatusChange(request.leave_id, "rejected")}
                 className="bg-red-500 text-white px-4 py-2 rounded hover:bg-red-600"
               >
                 Reject
@@ -88,13 +118,13 @@ const Leaves = () => {
 
             <textarea
               placeholder="Add a comment..."
-              value={comments[request.id] || ""}
-              onChange={(e) => handleCommentChange(request.id, e.target.value)}
+              value={comments[request.leave_id] || ""}
+              onChange={(e) => handleCommentChange(request.leave_id, e.target.value)}
               className="w-full p-2 border border-gray-300 rounded mb-4"
             />
 
             <button
-              onClick={() => handleSendStatus(request.id)}
+              onClick={() => handleSendStatus(request.leave_id)}
               style={{ width: "120px" }} // Adjust the width as needed
               className="bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
             >

@@ -403,13 +403,13 @@ app.post('/api/sendAlert', async (req, res) => {
   
     try {
       const notificationQuery = `
-        INSERT INTO Notifications (student_id, course_id, notification_type, comment, month, attendance_percentage)
-        VALUES ($1, $2, 'Alert', $3, $4, $5)
+        INSERT INTO Notifications (student_id, course_id, notification_type, comment)
+        VALUES ($1, $2, 'Alert', $3)
         RETURNING notification_id
       `;
       
       const comment = `Attendance is ${monthlyAttendance} % in ${selectedMonth}`;
-      const values = [studentId, courseId, comment, selectedMonth, monthlyAttendance];
+      const values = [studentId, courseId, comment];
   
       const result = await pool.query(notificationQuery, values);
   
@@ -419,6 +419,77 @@ app.post('/api/sendAlert', async (req, res) => {
       res.status(500).json({ error: 'Internal Server Error' });
     }
   });
+
+
+// Get leave Requests
+app.get('/api/leaves/:facultyId', async (req, res) => {
+    const { facultyId } = req.params;
+  
+    try {
+      const result = await pool.query(`
+        SELECT l.leave_id, u.name AS student_name, c.course_name, 
+               TO_CHAR(l.leave_start_date, 'YYYY-MM-DD') AS leave_start_date, 
+               TO_CHAR(l.leave_end_date, 'YYYY-MM-DD') AS leave_end_date, 
+               l.reason, l.status, l.comment
+        FROM Leaves l
+        JOIN Courses c ON l.course_id = c.course_id
+        JOIN Users u ON l.student_id = u.user_id
+        JOIN FacultyCourses fc ON fc.course_id = l.course_id
+        WHERE fc.faculty_id = $1 AND l.status = 'Pending'
+      `, [facultyId]);
+  
+      res.json(result.rows);
+    } catch (err) {
+      console.error(err.message);
+      res.status(500).send('Server Error');
+    }
+});
+
+// Update leave status and add Notification
+app.put('/api/leaves/:leaveId', async (req, res) => {
+    const { leaveId } = req.params;
+    let { status, comment } = req.body;
+
+    // Capitalize the first letter of status
+    status = status.charAt(0).toUpperCase() + status.slice(1).toLowerCase();
+
+    try {
+        // Update the leave status
+        await pool.query(
+            `UPDATE Leaves SET status = $1, comment = $2, updated_at = CURRENT_TIMESTAMP WHERE leave_id = $3`,
+            [status, comment, leaveId]
+        );
+
+        // Fetch student_id and course_id from Leaves table
+        const result = await pool.query(
+            `SELECT student_id, course_id, leave_start_date, leave_end_date FROM Leaves WHERE leave_id = $1`,
+            [leaveId]
+        );
+
+        // Check if the leave exists
+        if (result.rows.length === 0) {
+            return res.status(404).send('Leave not found');
+        }
+
+        const leave = result.rows[0];
+
+        const formattedStartDate = new Date(leave.leave_start_date).toISOString().split('T')[0];
+        const formattedEndDate = new Date(leave.leave_end_date).toISOString().split('T')[0];
+
+        // Create the notification
+        const notificationComment = `Leave request from ${formattedStartDate} to ${formattedEndDate} is ${status}. ${comment}`;
+        
+        await pool.query(
+            `INSERT INTO Notifications (student_id, course_id, notification_type, comment) VALUES ($1, $2, $3, $4)`,
+            [leave.student_id, leave.course_id, 'Leave', notificationComment]
+        );
+
+        res.status(200).send('Leave status updated and notification created successfully');
+    } catch (err) {
+        console.error(err.message);
+        res.status(500).send('Server Error');
+    }
+});
 
 
 
