@@ -1,24 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
-const Students = () => {
+const Students = ({ userId }) => {
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [searchName, setSearchName] = useState('');
-  
-  const courseOptions = [
-    { value: 'mechanics', label: 'Engineering Mechanics' },
-    { value: 'mathematics', label: 'Mathematics' },
-    { value: 'physics', label: 'Physics' },
-    // Add more courses as needed
-  ];
-
-  const studentsData = [
-    { id: 'S001', name: 'Hardik Pandya', monthlyAttendance: 60, overallAttendance: 80, leaves: 9, course: 'mechanics' },
-    { id: 'S002', name: 'Rohit Sharma', monthlyAttendance: 85, overallAttendance: 90, leaves: 3, course: 'mathematics' },
-    { id: 'S003', name: 'Virat Kohli', monthlyAttendance: 72, overallAttendance: 88, leaves: 7, course: 'physics' },
-    { id: 'S004', name: 'Shubman Gill', monthlyAttendance: 95, overallAttendance: 95, leaves: 1, course: 'mechanics' },
-    // Add more students as needed
-  ];
+  const [courseOptions, setCourseOptions] = useState([]);
+  const [studentsData, setStudentsData] = useState([]);
 
   const handleCourseChange = (e) => setSelectedCourse(e.target.value);
   const handleMonthChange = (e) => setSelectedMonth(e.target.value);
@@ -30,20 +18,42 @@ const Students = () => {
     }
   };
 
-  const filteredStudents = studentsData.filter((student) => {
-    return (
-      (!selectedCourse || student.course === selectedCourse) &&
-      (!searchName || student.name.toLowerCase().includes(searchName.toLowerCase())) &&
-      (!selectedMonth || true) // You can add more logic here to filter based on month if applicable.
-    );
-  });
+  const fetchStudents = async () => {
+    try {
+      const response = await axios.get('http://localhost:5000/api/students', {
+        params: {
+          course_id: selectedCourse,
+          search_name: searchName,
+        },
+      });
+      setStudentsData(response.data);
+    } catch (error) {
+      console.error("Error fetching student data", error);
+    }
+  };
+
+  // Fetch courses
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        const response = await axios.get('http://localhost:5000/api/facultyCourses', {
+          params: { user_id: userId },
+        });
+        setCourseOptions(response.data);
+      } catch (error) {
+        console.error("Error fetching faculty courses", error);
+      }
+    };
+  
+    fetchCourses();
+  }, [userId]);
 
   return (
     <div className="p-8">
       <h2 className="text-4xl font-bold mb-8 text-gray-800">Students</h2>
 
       {/* Filters */}
-      <div className="mb-6">
+      <div className="mb-6 flex items-center">
         <label className="mr-4">
           Course:
           <select
@@ -77,6 +87,14 @@ const Students = () => {
           onChange={handleSearchChange}
           className="ml-6 p-2 border border-gray-300 rounded"
         />
+
+        {/* Search Button */}
+        <button
+          onClick={fetchStudents}
+          className="ml-4 bg-blue-500 text-white px-4 py-2 rounded hover:bg-blue-600"
+        >
+          Search
+        </button>
       </div>
 
       {/* Student Table */}
@@ -93,7 +111,7 @@ const Students = () => {
             </tr>
           </thead>
           <tbody>
-            {filteredStudents.map((student) => (
+            {studentsData.map((student) => (
               <tr key={student.id}>
                 <td className="py-2">{student.id}</td>
                 <td className="py-2">{student.name}</td>

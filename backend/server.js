@@ -267,6 +267,141 @@ app.post('/api/attendance', async (req, res) => {
     }
   });
 
+
+// Get students attendance percentage
+app.get('/api/students', async (req, res) => {
+    const { course_id, search_name } = req.query;
+
+    try {
+        // 1. Get Students and Their Course Info
+        let studentsQuery = `
+            SELECT u.user_id AS id, u.name AS name, sc.course_id AS course
+            FROM Users u
+            JOIN StudentCourses sc ON u.user_id = sc.student_id
+            WHERE u.role = 'student'
+        `;
+
+        if (course_id) {
+            studentsQuery += ` AND sc.course_id = $1`;
+        }
+
+        const studentsValues = course_id ? [course_id] : [];
+        const studentsResult = await pool.query(studentsQuery, studentsValues);
+        const students = studentsResult.rows;
+
+        // 2. Calculate Monthly Attendance
+        const monthlyAttendanceResults = []; // Initialize an empty array to store results
+
+        for (const student of students) {
+            const attendanceQuery = `
+                SELECT 
+                    COUNT(*) AS totalattendance,
+                    SUM(CASE WHEN a.is_present = true THEN 1 ELSE 0 END) AS presentcount
+                FROM Attendance a
+                WHERE a.student_id = $1 
+                  AND a.course_id = $2
+                  AND a.attendance_date >= date_trunc('month', CURRENT_DATE)
+                  AND a.attendance_date < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+            `;
+            
+            const attendanceValues = [student.id, student.course];
+            
+            try {
+                const attendanceResult = await pool.query(attendanceQuery, attendanceValues);
+                
+                // Use defaults in case of no attendance records
+                const { totalattendance = 0, presentcount = 0 } = attendanceResult.rows[0] || {};
+                
+                const monthlyAttendance = totalattendance > 0 ? (presentcount / totalattendance) * 100 : 0;
+                
+                // Push the result to the array
+                monthlyAttendanceResults.push({
+                    studentId: student.id,
+                    monthlyAttendance,
+                });
+            } catch (error) {
+                console.error(`Error fetching attendance for student ID ${student.id}:`, error);
+            }
+        }
+
+        // 3. Calculate Overall Attendance
+        const overallAttendancePromises = students.map(async (student) => {
+            const overallQuery = `
+                SELECT 
+                    COUNT(*) AS totalattendance,
+                    SUM(CASE WHEN a.is_present = true THEN 1 ELSE 0 END) AS presentcount
+                FROM Attendance a
+                WHERE a.student_id = $1 
+                  AND a.course_id = $2
+                  AND a.attendance_date >= '2024-10-01' -- Start of the period
+                  AND a.attendance_date <= CURRENT_DATE
+            `;
+            const overallValues = [student.id, student.course];
+            const overallResult = await pool.query(overallQuery, overallValues);
+
+            const { totalattendance, presentcount } = overallResult.rows[0];
+
+            return {
+                studentId: student.id,
+                overallAttendance: totalattendance > 0 ? (presentcount / totalattendance) * 100 : 0,
+            };
+        });
+
+        const overallAttendanceResults = await Promise.all(overallAttendancePromises);
+
+        // 4. Count Leaves
+        const leavesPromises = students.map(async (student) => {
+            const leavesQuery = `
+                SELECT 
+                    COUNT(*) AS leavecount
+                FROM Attendance a
+                WHERE a.student_id = $1 
+                  AND a.course_id = $2
+                  AND a.is_present = false
+                  AND a.attendance_date >= date_trunc('month', CURRENT_DATE)
+                  AND a.attendance_date < date_trunc('month', CURRENT_DATE) + INTERVAL '1 month'
+            `;
+            const leavesValues = [student.id, student.course];
+            const leavesResult = await pool.query(leavesQuery, leavesValues);
+            const leaveCount = leavesResult.rows.length > 0 ? leavesResult.rows[0].leavecount : 0;
+
+            return {
+                studentId: student.id,
+                leaves: leaveCount,
+            };
+        });
+
+        const leavesResults = await Promise.all(leavesPromises);
+
+        // Combine results into final structure
+        const studentsData = students.map((student) => {
+            const monthlyAttendance = monthlyAttendanceResults.find(a => a.studentId === student.id)?.monthlyAttendance || 0;
+            const overallAttendance = overallAttendanceResults.find(a => a.studentId === student.id)?.overallAttendance || 0;
+            const leavesCount = leavesResults.find(a => a.studentId === student.id)?.leaves || 0;
+
+            return {
+                id: student.id,
+                name: student.name,
+                monthlyAttendance: parseFloat(monthlyAttendance.toFixed(2)), // Round to two decimal places
+                overallAttendance: parseFloat(overallAttendance.toFixed(2)), // Round to two decimal places
+                leaves: leavesCount,
+                course: student.course
+            };
+        });
+
+        res.json(studentsData);
+    } catch (err) {
+        console.error('Error fetching students:', err);
+        res.status(500).json({ error: 'Server error' });
+    }
+});
+
+ 
+
+
+
+
+
 const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
