@@ -191,6 +191,94 @@ app.get('/api/facultyCourses', async (req, res) => {
 });
 
 
+// Get Student Courses
+app.get('/api/courses/:userId', async (req, res) => {
+    const userId = req.params.userId;
+  
+    try {
+      const query = `
+        SELECT c.course_id, c.course_name
+        FROM studentcourses sc
+        JOIN courses c ON sc.course_id = c.course_id
+        WHERE sc.student_id = $1
+      `;
+      const result = await pool.query(query, [userId]);
+      res.json(result.rows);
+    } catch (error) {
+      console.error('Error fetching courses:', error);
+      res.status(500).send('Server error');
+    }
+});
+
+app.post('/api/student/attendance', async (req, res) => {
+    const { userId, courseId, month, date } = req.body; 
+
+    const monthDate = `${month}-01`;
+  
+    try {
+      // Monthly Attendance Query
+      const monthlyQuery = `
+        SELECT 
+            COUNT(*) AS totalattendance,
+            SUM(CASE WHEN a.is_present = true THEN 1 ELSE 0 END) AS presentcount
+        FROM Attendance a
+        WHERE a.student_id = $1 
+          AND a.course_id = $2
+          AND a.attendance_date >= date_trunc('month', $3::date)
+          AND a.attendance_date < date_trunc('month', $3::date) + INTERVAL '1 month'
+      `;
+      const monthlyValues = [userId, courseId, monthDate];
+      const monthlyResult = await pool.query(monthlyQuery, monthlyValues);
+      const { totalattendance, presentcount } = monthlyResult.rows[0] || {};
+      const monthlyAttendance = totalattendance > 0 ? (presentcount / totalattendance) * 100 : 0;
+  
+      // Overall Attendance Query
+      const overallQuery = `
+        SELECT 
+            COUNT(*) AS totalattendance,
+            SUM(CASE WHEN a.is_present = true THEN 1 ELSE 0 END) AS presentcount
+        FROM Attendance a
+        WHERE a.student_id = $1 
+          AND a.course_id = $2
+          AND a.attendance_date >= '2024-01-01' 
+          AND a.attendance_date <= CURRENT_DATE
+      `;
+      const overallValues = [userId, courseId];
+      const overallResult = await pool.query(overallQuery, overallValues);
+      const overallAttendance = overallResult.rows[0];
+  
+      const overallAttendancePercentage = overallAttendance.totalattendance > 0 
+        ? (overallAttendance.presentcount / overallAttendance.totalattendance) * 100 
+        : 0;
+  
+      // Attendance Status for Selected Date Query
+      const statusQuery = `
+        SELECT is_present 
+        FROM Attendance 
+        WHERE student_id = $1 
+          AND course_id = $2 
+          AND attendance_date = $3
+      `;
+      const statusValues = [userId, courseId, date];
+      const statusResult = await pool.query(statusQuery, statusValues);
+      
+      let attendanceStatus = 'Not marked'; // Default value
+      if (statusResult.rows.length > 0) {
+        attendanceStatus = statusResult.rows[0].is_present ? 'Present' : 'Absent';
+      }
+  
+      // Sending the response back
+      res.json({
+        monthlyAttendance,
+        overallAttendance: overallAttendancePercentage,
+        attendanceStatus,
+      });
+    } catch (error) {
+      console.error('Error fetching attendance:', error);
+      res.status(500).send('Server error');
+    }
+  });
+
 
 // Get Attendance
 app.get('/api/attendance', async (req, res) => {

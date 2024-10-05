@@ -57,7 +57,7 @@ function App() {
         localStorage.removeItem('token');
       }
     }
-    return decoded.id ? element : <Navigate to="/login" />;
+    return decoded?.id ? element : <Navigate to="/login" />;
   };
 
   return (

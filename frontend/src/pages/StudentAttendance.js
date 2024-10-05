@@ -1,27 +1,34 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import axios from 'axios';
 
-// Mock data for courses; replace with real data from your API or state management
-const courses = [
-  { id: 'C001', name: 'Engineering Mechanics' },
-  { id: 'C002', name: 'Mathematics' },
-  { id: 'C003', name: 'Chemistry' },
-];
-
-const StudentAttendance = () => {
+const StudentAttendance = ({ userId }) => {
+  const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState('');
   const [selectedMonth, setSelectedMonth] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
-  const [monthlyAttendance, setMonthlyAttendance] = useState('85');
-  const [overallAttendance, setOverallAttendance] = useState('88');
-  const [attendanceStatus, setAttendanceStatus] = useState('Present');
+  const [monthlyAttendance, setMonthlyAttendance] = useState('');
+  const [overallAttendance, setOverallAttendance] = useState('');
+  const [attendanceStatus, setAttendanceStatus] = useState('');
+
+  useEffect(() => {
+    const fetchCourses = async () => {
+      try {
+        if(userId){
+          const response = await axios.get(`http://localhost:5000/api/courses/${userId}`);
+          console.log("Courses response", response.data);
+          setCourses(response.data);
+        }
+      } catch (error) {
+        console.error('Error fetching courses:', error);
+      }
+    };
+
+    fetchCourses();
+  }, [userId]);
 
   // Function to handle course change
   const handleCourseChange = (e) => {
     setSelectedCourse(e.target.value);
-    // Hardcode values for now
-    setMonthlyAttendance('85');
-    setOverallAttendance('88');
-    setAttendanceStatus('Present');
   };
 
   // Function to handle month change
@@ -34,9 +41,42 @@ const StudentAttendance = () => {
     setSelectedDate(e.target.value);
   };
 
+  // Function to handle search button click
+  const handleSearch = async () => {
+    if (!selectedCourse || !selectedMonth || !selectedDate) {
+      alert('Please select a course, month, and date.');
+      return;
+    }
+  
+    try {
+      const response = await axios.post('http://localhost:5000/api/student/attendance', {
+        userId,
+        courseId: selectedCourse,
+        month: selectedMonth,
+        date: selectedDate,
+      });
+  
+      const { monthlyAttendance, overallAttendance, attendanceStatus } = response.data;
+      setMonthlyAttendance(monthlyAttendance);
+      setOverallAttendance(overallAttendance);
+      setAttendanceStatus(attendanceStatus);
+    } catch (error) {
+      console.error('Error fetching attendance data:', error);
+    }
+  };
+  
+
   return (
     <div className="p-8 bg-white-100 rounded-lg shadow-lg max-w-full mx-auto h-full">
-      <h2 className="text-4xl font-bold mb-8 text-gray-900">My Attendance</h2>
+      <div className="flex items-center justify-between mb-8">
+        <h2 className="text-4xl font-bold text-gray-900">My Attendance</h2>
+        <button 
+          onClick={handleSearch} 
+          className="bg-blue-500 text-white font-semibold py-2 px-4 rounded hover:bg-blue-600 transition"
+        >
+          Search
+        </button>
+      </div>
       <div className="mb-8 flex flex-wrap gap-6">
         <div className="flex-1 min-w-[250px]">
           <label htmlFor="course" className="block text-gray-800 text-lg font-semibold mb-2">Course</label>
@@ -48,7 +88,7 @@ const StudentAttendance = () => {
           >
             <option value="">Select Course</option>
             {courses.map(course => (
-              <option key={course.id} value={course.id}>{course.name}</option>
+              <option key={course.course_id} value={course.course_id}>{course.course_name}</option>
             ))}
           </select>
         </div>
