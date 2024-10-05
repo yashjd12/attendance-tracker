@@ -397,7 +397,28 @@ app.get('/api/students', async (req, res) => {
 });
 
  
-
+// Send alert for low attendance
+app.post('/api/sendAlert', async (req, res) => {
+    const { studentId, courseId, monthlyAttendance, selectedMonth } = req.body;
+  
+    try {
+      const notificationQuery = `
+        INSERT INTO Notifications (student_id, course_id, notification_type, comment, month, attendance_percentage)
+        VALUES ($1, $2, 'Alert', $3, $4, $5)
+        RETURNING notification_id
+      `;
+      
+      const comment = `Attendance is ${monthlyAttendance} % in ${selectedMonth}`;
+      const values = [studentId, courseId, comment, selectedMonth, monthlyAttendance];
+  
+      const result = await pool.query(notificationQuery, values);
+  
+      res.status(201).json({ notificationId: result.rows[0].notification_id });
+    } catch (error) {
+      console.error("Error sending alert:", error);
+      res.status(500).json({ error: 'Internal Server Error' });
+    }
+  });
 
 
 

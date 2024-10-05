@@ -12,11 +12,29 @@ const Students = ({ userId }) => {
   const handleMonthChange = (e) => setSelectedMonth(e.target.value);
   const handleSearchChange = (e) => setSearchName(e.target.value);
 
-  const handleSendAlert = (student) => {
+  const handleSendAlert = async (student) => {
     if (student.monthlyAttendance < 75) {
+      const alertData = {
+        studentId: student.id,
+        courseId: student.course,
+        monthlyAttendance: student.monthlyAttendance,
+        selectedMonth: selectedMonth,
+      };
+      
+    const monthName = new Date(selectedMonth).toLocaleString('default', { month: 'long' });
+
+    try {
+      const response = await axios.post('http://localhost:5000/api/sendAlert', {
+        ...alertData,
+        selectedMonth: monthName, // Use the full month name
+      });
       alert(`Alert sent to ${student.name} due to low attendance!`);
+    } catch (error) {
+      console.error("Error sending alert:", error);
+      alert("Failed to send alert. Please try again.");
     }
-  };
+  }
+};
 
   const fetchStudents = async () => {
     try {
