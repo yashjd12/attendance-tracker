@@ -614,7 +614,8 @@ app.get("/api/leaves/:facultyId", async (req, res) => {
         SELECT l.leave_id, u.name AS student_name, c.course_name, 
                TO_CHAR(l.leave_start_date, 'YYYY-MM-DD') AS leave_start_date, 
                TO_CHAR(l.leave_end_date, 'YYYY-MM-DD') AS leave_end_date, 
-               l.reason, l.status, l.comment
+               l.reason, l.status, l.comment,
+               TO_CHAR(l.created_at, 'YYYY-MM-DD HH24:MI:SS') AS created_at
         FROM Leaves l
         JOIN Courses c ON l.course_id = c.course_id
         JOIN Users u ON l.student_id = u.user_id
@@ -754,8 +755,7 @@ app.get("/api/notifications/:userId", async (req, res) => {
     const notifications = result.rows.map((row) => {
       if (row.notification_type === "Alert") {
         // Extract course, month, and attendance percentage from comment
-        const regex =
-          /Attendance:\s*(\d+)\s*,\s*Month:\s*([A-Za-z]+)\s*,\s*Course:\s*(.+)/;
+        const regex = /Attendance:\s*(\d+(?:\.\d+)?)\s*,\s*Month:\s*([A-Za-z]+)\s*,\s*Course:\s*(.+)/;
         const match = row.comment.match(regex);
 
         return {

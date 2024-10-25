@@ -41,10 +41,17 @@ const Login = ({ onLogin }) => {
     <div 
       className="flex items-center justify-center min-h-screen"
       style={{ 
-        background: 'linear-gradient(to right, #FFFFFF, #D7E1EC)' 
+        backgroundImage: `url('/images/attendance.jpg')`,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
       }}
     >
-      <div className="bg-white p-12 rounded-lg shadow-lg w-96 max-w-md">
+      <div 
+  className="p-12 rounded-lg shadow-lg w-96 max-w-md"
+  style={{ 
+    backgroundColor: 'rgba(255, 255, 255, 0.9)' // 80% opacity white
+  }}
+>
         <h2 className="text-3xl font-bold mb-8 text-center text-gray-800">Login</h2>
         <form className="space-y-6" onSubmit={handleSubmit}>
           <div className="relative">
@@ -72,9 +79,6 @@ const Login = ({ onLogin }) => {
             Login
           </button>
         </form>
-        <div className="text-center mt-6">
-          <a href="#" className="text-blue-600 hover:underline">Forgot Password?</a>
-        </div>
         <div className="text-center mt-4">
           <button 
             onClick={() => navigate('/signup')} 

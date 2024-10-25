@@ -1,5 +1,5 @@
 import React from 'react';
-import { Bar, Doughnut } from 'react-chartjs-2';
+import { Bar, Pie } from 'react-chartjs-2';
 import {
   Chart as ChartJS,
   CategoryScale,
@@ -37,14 +37,14 @@ const barChartData = {
   ],
 };
 
-// Data for the Donut Chart
-const donutChartData = {
-  labels: ['Present', 'Absent'],
+// Data for the Pie Chart
+const pieChartData = {
+  labels: ['Engineering Mechanics', 'Mathematics', 'Physics', 'Chemistry'],
   datasets: [
     {
-      label: 'Monthly Attendance',
-      data: [70, 30], // Example data
-      backgroundColor: ['#50E3C2', '#FF4F5A'], // Green and red colors
+      label: 'Subject-wise Attendance',
+      data: [75, 85, 65, 90], // Example data
+      backgroundColor: ['#4A90E2', '#50E3C2', '#FF4F5A', '#F5A623'], // Distinct colors for each subject
       borderColor: '#fff',
       borderWidth: 1,
     },
@@ -102,10 +102,10 @@ const Dashboard = ({userId}) => {
         </div>
         <div className="flex-1 bg-white p-4 rounded-lg shadow-md overflow-auto max-h-[500px]">
           <div className="p-6 mb-4 border border-gray-200 rounded-lg">
-            <h3 className="text-xl font-semibold mb-4">Donut Chart (Monthly Attendance - {currentMonth})</h3>
+            <h3 className="text-xl font-semibold mb-4">Pie Chart (Subject-wise Attendance - {currentMonth})</h3>
           </div>
-          <Doughnut
-            data={donutChartData}
+          <Pie
+            data={pieChartData}
             options={{
               responsive: true,
               plugins: {

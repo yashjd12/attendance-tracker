@@ -82,6 +82,9 @@ const Leaves = ({ userId }) => {
                 <p className="text-sm text-gray-600">
                   <strong>Reason:</strong> {request.reason}
                 </p>
+                <p className="text-sm text-gray-600">
+                  <strong>Received On:</strong> {request.created_at}
+                </p>
               </div>
             </div>
 

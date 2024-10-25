@@ -65,7 +65,7 @@ function App() {
       <div className="flex h-screen overflow-hidden">
         {userType && <Sidebar userType={userType} />}
         <div 
-          className="flex-1 p-4 overflow-hidden"
+          className="flex-1 overflow-hidden"
           style={{ 
             background: 'linear-gradient(to right, #FFFFFF, #D7E1EC)' 
           }}
